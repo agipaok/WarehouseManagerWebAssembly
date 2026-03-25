@@ -1,0 +1,79 @@
+﻿@page "/csv-upload"
+@rendermode InteractiveWebAssembly
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<style>
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+    th { background-color: #f0f0f0; font-weight: 500; }
+</style>
+
+<h3>CSV Upload</h3>
+
+<InputFile OnChange="HandleFile" accept=".csv" />
+
+@if (message != null)
+{
+    <p>@message</p>
+}
+
+@if (lines != null)
+{
+    <table>
+        <thead>
+        <tr>
+            <th>Όνομα</th>
+            <th>Τιμή</th>
+            <th>Ποσότητα</th>
+        </tr>
+        </thead>
+        <tbody>
+            @foreach (var line in lines)
+            {
+                var cols = line.Split(',');
+                <tr>
+                    <td>@cols[0]</td>
+                    <td>@cols[1]</td>
+                    <td>@cols[2]</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code
+{
+    private string? message;
+    private List<string>? lines;
+
+    private async Task HandleFile(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        using var content = new MultipartFormDataContent();
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var streamContent = new StreamContent(stream);
+        content.Add(streamContent,"file",file.Name);
+        var response = await Http.PostAsync("api/csv/upload", content);
+        
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<CsvResult>();
+            lines = result?.Data;
+            message = $"Επιτυχία! Διαβάστηκαν {lines?.Count} γραμμές.";
+        }
+        else
+        {
+            message = "Κάτι πήγε στραβά.";
+        }
+    }
+    
+    private class CsvResult
+    {
+        public string Message { get; set; } = "";
+        public List<string> Data { get; set; } = new();
+    }
+    
+    
+}
